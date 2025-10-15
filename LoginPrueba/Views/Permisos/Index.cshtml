@@ -1,0 +1,270 @@
+﻿@{
+    ViewData["Title"] = "Lista de Permisos";
+}
+
+@{
+    Context.Response.Headers["Cache-Control"] = "no-store, no-cache, must-revalidate";
+    Context.Response.Headers["Pragma"] = "no-cache";
+    Context.Response.Headers["Expires"] = "-1";
+}
+
+@section Scripts {
+        
+
+    <script>
+        $(document).ready(function () {
+          
+            var datasource = $('#tablaPermisos').DataTable({
+                dom: 'Bfrtip',
+                buttons: [
+                    {
+                        text: 'Agregar Permiso',
+                        className: 'btn btn-primary',
+                        action: function () {
+                            agregarPermiso();
+                        }
+                    },
+                    {
+                        extend: 'excelHtml5',
+                        text: 'Exportar a Excel',
+                        className: 'btn btn-outline-primary',
+                        exportOptions: { columns: ':not(:last-child)' }
+                    }
+                ],
+                ajax: {
+                    url: '/Permisos/Lista',
+                    type: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + localStorage.getItem('TokenJWT')
+                    },
+                    data: function (d) {
+                        d.columns.forEach(function (col) {
+                            col.search.value = '';
+                        });
+                        return d;
+                    }
+                },
+                serverSide: true,
+                pageLength: 10,
+                columns: [
+                    { data: 'id', title: 'ID', searchable: false },
+                    { data: 'nombreModulo', title: 'Nombre del Módulo', searchable: true },
+                    {
+                        data: null,
+                        title: 'Operaciones',
+                        orderable: false,
+                        searchable: false,
+                        render: function (data, type, row, meta) {
+                            return `
+                                <div class="btn-group">
+                                    <button type="button" onclick="editarPermiso(${row.id}, '${row.nombreModulo}')" class="btn btn-sm btn-outline-secondary">Editar</button>
+                                    <button type="button" onclick="eliminarPermiso(${row.id}, '${row.nombreModulo}')" class="btn btn-sm btn-outline-danger">Eliminar</button>
+                                    <button type="button" onclick="asignarUsuarios(${row.id}, '${row.nombreModulo}')" class="btn btn-sm btn-outline-primary">Asignar Usuarios</button>
+                                </div>`;
+                        }
+                    }
+                ]
+            });
+        });
+
+        function agregarPermiso() {
+            Swal.fire({
+                title: 'Agregar Permiso',
+                html: `
+                    <div class="form-group text-start">
+                        <label>Nombre del Módulo</label>
+                        <input id="swal-nombreModulo" class="form-control" placeholder="Ejemplo: Administración de Usuarios" />
+                    </div>`,
+                showCancelButton: true,
+                confirmButtonText: 'Agregar',
+                cancelButtonText: 'Cancelar',
+                preConfirm: () => {
+                    const nombreModulo = document.getElementById('swal-nombreModulo').value;
+                    if (!nombreModulo) {
+                        Swal.showValidationMessage('El nombre del módulo es obligatorio');
+                        return false;
+                    }
+                    return { nombreModulo };
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: '/Permisos/Create',
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify(result.value),
+                        headers: {
+                            'Authorization': 'Bearer ' + localStorage.getItem('TokenJWT')
+                        },
+                        success: function () {
+                            Swal.fire('Permiso agregado', '', 'success');
+                            $('#tablaPermisos').DataTable().ajax.reload();
+                        },
+                        error: function (xhr) {
+                            Swal.fire('Error', xhr.responseText, 'error');
+                        }
+                    });
+                }
+            });
+        }
+
+        function editarPermiso(id, nombreModulo) {
+            Swal.fire({
+                title: 'Editar Permiso',
+                html: `
+                    <div class="form-group text-start">
+                        <label>Nombre del Módulo</label>
+                        <input id="swal-nombreModulo" class="form-control" value="${nombreModulo}" />
+                    </div>`,
+                showCancelButton: true,
+                confirmButtonText: 'Actualizar',
+                cancelButtonText: 'Cancelar',
+                preConfirm: () => {
+                    const nombreModulo = document.getElementById('swal-nombreModulo').value;
+                    if (!nombreModulo) {
+                        Swal.showValidationMessage('El nombre del módulo es obligatorio');
+                        return false;
+                    }
+                    return { id, nombreModulo };
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: '/Permisos/' + id,
+                        method: 'PUT',
+                        contentType: 'application/json',
+                        data: JSON.stringify(result.value),
+                        headers: {
+                            'Authorization': 'Bearer ' + localStorage.getItem('TokenJWT')
+                        },
+                        success: function () {
+                            Swal.fire('Permiso actualizado', '', 'success');
+                            $('#tablaPermisos').DataTable().ajax.reload();
+                        },
+                        error: function (xhr) {
+                            Swal.fire('Error', xhr.responseText, 'error');
+                        }
+                    });
+                }
+            });
+        }
+
+        function eliminarPermiso(id, nombreModulo) {
+            Swal.fire({
+                title: '¿Eliminar permiso?',
+                text: nombreModulo,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: '/Permisos/' + id,
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': 'Bearer ' + localStorage.getItem('TokenJWT')
+                        },
+                        success: function () {
+                            Swal.fire('Eliminado', '', 'success');
+                            $('#tablaPermisos').DataTable().ajax.reload();
+                        },
+                        error: function (xhr) {
+                            Swal.fire('Error', xhr.responseText, 'error');
+                        }
+                    });
+                }
+            });
+        }
+
+        function asignarUsuarios(permisoId, nombreModulo) {
+
+              
+            Swal.fire({
+                title: `Asignar Usuarios al módulo ${nombreModulo}`,
+                html: `
+                    <div class="form-group text-start">
+                        <label>ID del Usuario</label>
+
+                         <select id="swal-usuarioId" class="form-select" ></select>
+                    </div>`,
+                showCancelButton: true,
+                confirmButtonText: 'Asignar',
+                cancelButtonText: 'Cancelar',
+                didOpen: () => {
+                    const swalContainer = document.querySelector('.swal2-popup');
+                    if (swalContainer) {
+                        swalContainer.setAttribute('id', 'AgregarUserModal');
+                    }
+
+
+                    $('#swal-usuarioId').select2({
+                        dropdownParent: $('#AgregarUserModal'),
+                        placeholder: 'Buscar módulo...',
+                        allowClear: true,
+                        ajax: {
+                            url: '/Permisos/BuscarModulos',
+                            dataType: 'json',
+                            delay: 250,
+                            data: function (params) {
+                                return {
+                                    term: params.term
+                                };
+                            },
+                            processResults: function (data) {
+                                return {
+                                    results: data
+                                };
+                            }
+                        }
+        });
+                },
+                preConfirm: () => {
+                    const usuarioId = document.getElementById('swal-usuarioId').value;
+                    if (!usuarioId) {
+                        Swal.showValidationMessage('Debe ingresar un ID de usuario válido');
+                        return false;
+                    }
+                    return { permisoId, usuarioId };
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: '/Permisos/AsignarUsuario',
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify(result.value),
+                        headers: {
+                            'Authorization': 'Bearer ' + localStorage.getItem('TokenJWT')
+                        },
+                        success: function () {
+                            Swal.fire('Usuario asignado al permiso', '', 'success');
+                        },
+                        error: function (xhr) {
+                            Swal.fire('Error', xhr.responseText, 'error');
+                        }
+                    });
+                }
+            });
+        }
+    </script>
+}
+
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Listado de Permisos</h5>
+        </div>
+        <div class="card-body">
+            <table id="tablaPermisos" class="display" style="width:100%">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre del Módulo</th>
+                        <th>Operaciones</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+</div>

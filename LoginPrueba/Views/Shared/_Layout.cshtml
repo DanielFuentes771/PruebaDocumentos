@@ -1,0 +1,80 @@
+﻿@inject Microsoft.AspNetCore.Http.IHttpContextAccessor HttpContextAccessor
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - LoginPrueba</title>
+
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/style.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/LoginPrueba.styles.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/all.min.css">
+    <link rel="stylesheet" href="~/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="~/css/sweetalert2.min.css">
+    <link rel="stylesheet" href="~/css/flatpickr.min.css">
+    <link rel="stylesheet" href="css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="css/sweetalert2.min.css">
+    <link href="~/css/select2.min.css" rel="stylesheet" />
+  
+</head>
+<body>
+
+    @if(HttpContextAccessor.HttpContext.Session.GetString("Usuario") != null)
+    {
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+            <div class="container-fluid">
+            <a class="navbar-brand" href="#">PRUEBA LABORAL</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menuPrincipal" aria-controls="menuPrincipal" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="menuPrincipal">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link active" aria-current="page" href="#">INICIO</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="./Admin">USUARIOS</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="./Permisos">PERMISOS</a>
+                    </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="./Documentos">DOCUMENTOS</a>
+                        </li>
+                   
+                    <li class="nav-item">
+                            <a class="nav-link" href="@Url.Action("CerrarSesion", "Admin")">CERRAR SESSION</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    }
+    <div class="container mt-4">
+      
+            @RenderBody()
+       
+    </div>
+    <footer class="border-top footer text-muted">
+        <div class="container">
+            &copy; 2025 - LoginPrueba - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+        </div>
+    </footer>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/jquery.dataTables.min.js"></script>
+    <script src="~/js/dataTables.buttons.min.js"></script>
+    <script src="~/js/jszip.min.js"></script>
+    <script src="~/js/buttons.html5.min.js"></script>
+    <script src="~/js/buttons.print.min.js"></script>
+    <script src="~/js/sweetalert2.all.min.js"></script>
+    <script src="~/js/flatpickr.js"></script>
+
+    <script src="~/js/select2.min.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+
+  
+</body>
+</html>

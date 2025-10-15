@@ -1,0 +1,279 @@
+﻿@{
+    ViewData["Title"] = "Lista Documentos";
+}
+@{
+    var httpContext = Context;
+    Context.Response.Headers["Cache-Control"] = "no-store, no-cache, must-revalidate";
+    Context.Response.Headers["Pragma"] = "no-cache";
+    Context.Response.Headers["Expires"] = "-1";
+}
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            var datasource = $('#tablaDocumentos').DataTable({
+                dom: 'Bfrtip',
+                buttons: [
+                    {
+                        text: 'Agregar Documento',
+                        className: 'btn btn-primary',
+                        action: function () {
+                            agregarDocumento();
+                        }
+                    },
+                    {
+                        extend: 'excelHtml5',
+                        text: 'Exportar a Excel',
+                        className: 'btn btn-outline-primary',
+                        exportOptions: {
+                            columns: ':not(:last-child)'
+                        }
+                    }
+                ],
+                ajax: {
+                    url: '/Documentos/datatable',
+                    headers: {
+                        'Authorization': 'Bearer ' + localStorage.getItem('TokenJWT')
+                    },
+                    type: 'POST',
+                    data: function (d) {
+                        d.columns.forEach(function (col) {
+                            col.search.value = '';
+                        });
+                        return d;
+                    }
+                },
+                fnServerParams: function (data) {
+                    data['order'].forEach(function (items, index) {
+                        data['order'][index]['column_name'] = data['columns'][items.column]['data'];
+                    });
+                },
+                serverSide: true,
+                pageLength: 10,
+                columns: [
+                    { data: 'nombre', name: 'nombre', title: 'Nombre' },
+                    { data: 'contrato', name: 'contrato', title: 'Contrato' },
+                    { data: 'saldo', name: 'saldo', title: 'Saldo' },
+                    { data: 'fecha', name: 'fecha', title: 'Fecha' },
+                    { data: 'telefono', name: 'telefono', title: 'Teléfono' },
+                    { data: 'usuario', name: 'usuario', title: 'Usuario' },
+                    {
+                        data: "Operaciones",
+                        name: "Operaciones",
+                        render: function (data, type, row) {
+                            return `
+                                <div class="btn-group">
+                                    <button type="button" onclick='editarDocumento(event, ${row.id})' class="btn btn-sm btn-outline-secondary">EDITAR</button>
+                                    <button type="button" onclick='eliminarDocumento(event, ${row.id}, "${row.nombre}")' class="btn btn-sm btn-outline-danger">ELIMINAR</button>
+                                </div>`;
+                        },
+                        orderable: false,
+                        searchable: false
+                    }
+                ]
+            });
+        });
+        function agregarDocumento() {
+            Swal.fire({
+                title: 'Agregar Documento',
+                  
+                html: `
+                    <div class="form-group">
+                        <label>Nombre</label>
+                        <input type="text" id="nombre" class="form-control" placeholder="Nombre del documento">
+                    </div>
+                    <div class="form-group">
+                        <label>Contrato</label>
+                        <input type="text" id="contrato" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>Saldo</label>
+                        <input type="number" id="saldo" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha</label>
+                        <input type="date" id="fecha" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>Teléfono</label>
+                        <input type="text" id="telefono" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>Usuario ID</label>
+                       
+                         <select id="swal-usuarioId" class="form-select" ></select>
+                    </div>
+                `,
+                didOpen: () => {
+                    const swalContainer = document.querySelector('.swal2-popup');
+                    if (swalContainer) {
+                        swalContainer.setAttribute('id', 'AgregarUserModal');
+                    }
+
+
+                    $('#swal-usuarioId').select2({
+                        dropdownParent: $('#AgregarUserModal'),
+                        placeholder: 'Buscar módulo...',
+                        allowClear: true,
+                        ajax: {
+                            url: '/Permisos/BuscarModulos',
+                            dataType: 'json',
+                            delay: 250,
+                            data: function (params) {
+                                return {
+                                    term: params.term
+                                };
+                            },
+                            processResults: function (data) {
+                                return {
+                                    results: data
+                                };
+                            }
+                        }
+        });
+                },
+                showCancelButton: true,
+                confirmButtonText: 'Guardar',
+                cancelButtonText: 'Cancelar',
+                preConfirm: () => {
+                    const doc = {
+                        nombre: $('#nombre').val(),
+                        contrato: $('#contrato').val(),
+                        saldo: parseFloat($('#saldo').val()) || 0,
+                        fecha: $('#fecha').val(),
+                        telefono: $('#telefono').val(),
+                        usuarioId: parseInt($('#usuarioId').val()) || null
+                    };
+                    if (!doc.nombre || !doc.fecha) {
+                        Swal.showValidationMessage('Los campos Nombre y Fecha son obligatorios');
+                        return false;
+                    }
+                    return doc;
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: '/Documentos/crear',
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify(result.value),
+                        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('TokenJWT') },
+                        success: function () {
+                            Swal.fire('Documento agregado', '', 'success');
+                            $('#tablaDocumentos').DataTable().ajax.reload();
+                        },
+                        error: function (xhr) {
+                            Swal.fire('Error', xhr.responseText, 'error');
+                        }
+                    });
+                }
+            });
+        }
+        function editarDocumento(e, id) {
+            e.preventDefault();
+            $.ajax({
+                url: '/Documentos/listar',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('TokenJWT') },
+                success: function (data) {
+                    const doc = data.find(x => x.id === id);
+                    if (!doc) {
+                        Swal.fire('Error', 'Documento no encontrado', 'error');
+                        return;
+                    }
+                    Swal.fire({
+                        title: 'Editar Documento',
+                        html: `
+                            <div class="form-group"><label>Nombre</label><input id="nombre" class="form-control" value="${doc.nombre}"></div>
+                            <div class="form-group"><label>Contrato</label><input id="contrato" class="form-control" value="${doc.contrato}"></div>
+                            <div class="form-group"><label>Saldo</label><input id="saldo" type="number" class="form-control" value="${doc.saldo}"></div>
+                            <div class="form-group"><label>Fecha</label><input id="fecha" type="date" class="form-control" value="${doc.fecha}"></div>
+                            <div class="form-group"><label>Teléfono</label><input id="telefono" class="form-control" value="${doc.telefono}"></div>
+                            <div class="form-group"><label>Usuario ID</label><input id="usuarioId" type="number" class="form-control" value="${doc.usuarioId || ''}"></div>
+                        `,
+                        showCancelButton: true,
+                        confirmButtonText: 'Actualizar',
+                        cancelButtonText: 'Cancelar',
+                        preConfirm: () => ({
+                            nombre: $('#nombre').val(),
+                            contrato: $('#contrato').val(),
+                            saldo: parseFloat($('#saldo').val()) || 0,
+                            fecha: $('#fecha').val(),
+                            telefono: $('#telefono').val(),
+                            usuarioId: parseInt($('#usuarioId').val()) || null
+                        })
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            $.ajax({
+                                url: `/Documentos/actualizar/${id}`,
+                                method: 'PUT',
+                                contentType: 'application/json',
+                                data: JSON.stringify(result.value),
+                                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('TokenJWT') },
+                                success: function () {
+                                    Swal.fire('Documento actualizado', '', 'success');
+                                    $('#tablaDocumentos').DataTable().ajax.reload();
+                                },
+                                error: function (xhr) {
+                                    Swal.fire('Error', xhr.responseText, 'error');
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+        }
+        function eliminarDocumento(e, id, nombre) {
+            e.preventDefault();
+            Swal.fire({
+                title: '¿Eliminar documento?',
+                text: nombre,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: `/Documentos/eliminar/${id}`,
+                        method: 'DELETE',
+                        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('TokenJWT') },
+                        success: function () {
+                            Swal.fire('Eliminado', '', 'success');
+                            $('#tablaDocumentos').DataTable().ajax.reload();
+                        },
+                        error: function (xhr) {
+                            Swal.fire('Error', xhr.responseText, 'error');
+                        }
+                    });
+                }
+            });
+        }
+    </script>
+}
+
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Listado de Documentos</h5>
+        </div>
+        <div class="card-body">
+            <table id="tablaDocumentos" class="display" style="width:100%">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Contrato</th>
+                        <th>Saldo</th>
+                        <th>Fecha</th>
+                        <th>Teléfono</th>
+                        <th>Usuario</th>
+                        <th>Operaciones</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    const token = '@ViewBag.TokenJWT';
+    if (token) localStorage.setItem('TokenJWT', token);
+</script>

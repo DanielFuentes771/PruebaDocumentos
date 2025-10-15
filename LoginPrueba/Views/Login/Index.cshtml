@@ -1,0 +1,28 @@
+﻿@*
+    For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+*@
+@{
+    var httpContext = Context;
+    Context.Response.Headers["Cache-Control"] = "no-store, no-cache, must-revalidate";
+    Context.Response.Headers["Pragma"] = "no-cache";
+    Context.Response.Headers["Expires"] = "-1";
+}
+<div class="wrapper">
+    <div class="title"><span>REGISTRO</span></div>
+    <form action="/Login/Autenticar" method="post">
+        <div class="row">
+            <i class="fas fa-user"></i>
+            <input type="text" placeholder="USUARIO" name="usuario" required />
+        </div>
+        <div class="row">
+            <i class="fas fa-lock"></i>
+            <input type="password" placeholder="CONTRASEÑA" name="contraseña" required />
+        </div>
+        <div class="pass"><a href="#">OLVIDE LA CONTRASEÑA</a></div>
+        <div class="row button">
+            <input type="submit" value="ENTRAR" />
+        </div>
+        <div class="signup-link"></div>
+    </form>
+</div>
+

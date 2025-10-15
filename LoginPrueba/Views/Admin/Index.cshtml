@@ -1,0 +1,328 @@
+﻿@{
+    ViewData["Title"] = "Lista Usarios";
+}
+@{
+    var httpContext = Context;
+    Context.Response.Headers["Cache-Control"] = "no-store, no-cache, must-revalidate";
+    Context.Response.Headers["Pragma"] = "no-cache";
+    Context.Response.Headers["Expires"] = "-1";
+}
+@section Scripts {
+    <script>
+        let datasource;
+        $(document).ready(function () {
+           datasource = $('#example').DataTable({
+              dom: 'Bfrtip',
+              buttons: [
+                  {
+                      text: 'Agregar Usuario',
+                      className: 'btn btn-primary',
+                      action: function () { agregar(); }
+                  },
+                  {
+                      extend: 'excelHtml5',
+                      text: 'Exportar a Excel',
+                      className: 'btn btn-outline-primary',
+                      exportOptions: { columns: ':not(:last-child)' }
+                  }
+              ],
+              ajax: {
+                  url: '/Usuarios/Lista',
+                  headers: { 'Authorization': 'Bearer ' + localStorage.getItem('TokenJWT') },
+                  type: 'POST',
+                  data: function (d) {
+                      d.columns.forEach(function (col) { col.search.value = ''; });
+                      return d;
+                  }
+              },
+              fnServerParams: function (data) {
+                  data['order'].forEach(function (items, index) {
+                      data['order'][index]['column_name'] = data['columns'][items.column]['data'];
+                  });
+              },
+              serverSide: true,
+              pageLength: 10,
+              columns: [
+                  { data: 'usuario', name: "usuario", title: 'usuario', searchable: false },
+                  { data: 'estatus', name: "estatus", title: 'estatus', searchable: false },
+                  { data: 'horainicio', name: "horainicio", title: 'horainicio', searchable: false },
+                  { data: 'horafin', name: "horafin", title: 'horafin', searchable: false },
+                  {
+                      data: "Operaciones",
+                      name: "Operaciones",
+                      render: function (data, type, row, meta) {
+                          return '<div class="d-flex justify-content-between align-items-center">'+
+                              '<div class="btn-group">'+
+                              '<button type="button"  Onclick=\'eliminar(event,"'+row.id+'","'+row.usuario+'")\' class="btn btn-sm btn-outline-secondary">ELIMINAR</button>'+
+                              '<button type="button" Onclick=\'editar(event,\"' + row.id + '\",\"' + row.usuario + '\",\"' + row.estatus + '\",\"' + row.horainicio + '\",\"' + row.horafin + '\")\' class="btn btn-sm btn-outline-secondary">EDITAR</button>'+
+                              '</div></div>';
+                      },
+                      orderable: false,
+                      searchable: false
+                  }
+              ]
+           });
+        });
+
+        const token = '@ViewBag.TokenJWT';
+        localStorage.setItem('TokenJWT', token);
+
+        function eliminar(e,id,name) {
+            e.preventDefault();
+            Swal.fire({
+                title: '¿Confirma la eliminación del Usuario seleccionado?',
+                text: name,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Continuar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: 'Usuarios/'+id,
+                        method: 'delete',
+                        contentType: 'application/json',
+                        headers: { 'Authorization': 'Bearer ' + token },
+                        success: function () {
+                            Swal.fire('Eliminado!','El suaurio fue eliminado','success');
+                            datasource.ajax.reload(null, false);
+                        },
+                        error: function (xhr) {
+                            console.error('Error:', xhr.responseText);
+                        }
+                    });
+                }
+            })
+        }
+
+        function validarContraseña(contraseña) {
+            if (contraseña.length < 6) return { valido: false, motivo: "La contraseña debe tener al menos 6 caracteres." };
+            if (!/[^A-Za-z0-9]/.test(contraseña)) return { valido: false, motivo: "La contraseña debe contener al menos un carácter especial." };
+            if (contieneNumerosConsecutivos(contraseña)) return { valido: false, motivo: "La contraseña no debe contener números consecutivos." };
+            return { valido: true };
+        }
+
+        function contieneNumerosConsecutivos(texto) {
+            for (let i = 0; i < texto.length - 1; i++) {
+                const actual = parseInt(texto[i]);
+                const siguiente = parseInt(texto[i + 1]);
+                if (!isNaN(actual) && !isNaN(siguiente) && siguiente === actual + 1) return true;
+            }
+            return false;
+        }
+
+        function editar(e, id, usuario, estatus, horainicio, horafin) {
+            Swal.fire({
+                title: 'Editar Usuario',
+                html: `
+                <div class="container">
+                    <div class="contact__wrapper">
+                        <div class="row no-gutters">
+                            <div class="col-lg-12 contact-form__wrapper p-5 order-lg-1">
+                                <div class="row">
+                                    <div class="col-sm-12 mb-3">
+                                        <div class="form-group">
+                                            <label class="required-field" for="firstName">Usuario</label>
+                                            <input type="text" class="form-control" value="${usuario}" id="swal-usuario">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-sm-12 mb-3">
+                                        <div class="form-group">
+                                            <label>Estatus</label>
+                                            <select id="swal-estado" class="form-control swal2-input custom-select">
+                                                <option selected disabled>Seleccione el Estatus</option>
+                                                <option value="BAJA">BAJA</option>
+                                                <option value="ACTIVO">ACTIVO</option>
+                                                <option value="CHANGEPASSWORD">CAMBIAR PASSWORD</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6 mb-3">
+                                        <div class="form-group">
+                                            <label class="required-field">Hora Inicio</label>
+                                            <input type="text" value="${horainicio}" class="hora form-control" id="swal-horas_inicio2" />
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6 mb-3">
+                                        <div class="form-group">
+                                            <label>Hora Salida</label>
+                                            <input type="text" value="${horafin}" class="hora form-control" id="swal-hora_fin">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>`,
+                didOpen: () => {
+                    $("#swal-estado").val(estatus).change();
+                    flatpickr(".hora", { noCalendar: true, enableTime: true, time_24hr: true, dateFormat: "H:i:ss", locale: "es" });
+                },
+                showCancelButton: true,
+                confirmButtonText: 'Actualizar',
+                cancelButtonText: 'Cancelar',
+                preConfirm: () => {
+                    const usuario = document.getElementById('swal-usuario').value;
+                    const estatus = document.getElementById('swal-estado').value;
+                    const horainicio = document.getElementById('swal-horas_inicio2').value;
+                    const horafin = document.getElementById('swal-hora_fin').value;
+                   // const contraseña = document.getElementById('swal-contraseña').value;
+                    if (!usuario || !estatus || !horainicio || !horafin ) {
+                        Swal.showValidationMessage('Todos los campos son obligatorios');
+                        return false;
+                    }
+                    const horainicio1 = new Date(`1970-01-01T${horainicio}`);
+                    const horaFin1 = new Date(`1970-01-01T${horafin}`);
+                    if (horainicio1 > horaFin1) {
+                        Swal.showValidationMessage('La hora de inicio no puede ser mayor que la hora de fin.');
+                        return false;
+                    }
+                    return { usuario, estatus, horainicio, horafin };
+                }
+            }).then((result) => {
+                if (result.isConfirmed && result.value) {
+                    $.ajax({
+                        url: '/Usuarios/' + id,
+                        method: 'PUT',
+                        contentType: 'application/json',
+                        data: JSON.stringify(result.value),
+                        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('TokenJWT') },
+                        success: function () {
+                            Swal.fire('Usuario actualizado', '', 'success');
+                            datasource.ajax.reload(null, false);
+                        },
+                        error: function (xhr) {
+                            Swal.fire('Error', xhr.responseText, 'error');
+                        }
+                    });
+                }
+            });
+        }
+
+        function agregar() {
+            Swal.fire({
+                title: 'Agregar Usuario',
+                html: `
+                <div class="container">
+                    <div class="contact__wrapper ">
+                        <div class="row no-gutters">
+                            <div class="col-lg-12 contact-form__wrapper p-5 order-lg-1">
+                                <form>
+                                    <div class="row">
+                                        <div class="col-sm-12 mb-3">
+                                            <div class="form-group">
+                                                <label class="required-field">Usuario</label>
+                                                <input type="text" class="form-control" id="swal-usuario">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-sm-12 mb-3">
+                                            <div class="form-group">
+                                                <label class="required-field">Contraseña</label>
+                                                <input type="password" class="form-control" id="swal-contraseña">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-sm-12 mb-3">
+                                            <div class="form-group">
+                                                <label>Estatus</label>
+                                                <select id="swal-estado" class="form-control swal2-input custom-select">
+                                                    <option selected disabled>Seleccione el Estatus</option>
+                                                    <option value="BAJA">BAJA</option>
+                                                    <option value="ACTIVO">ACTIVO</option>
+                                                    <option value="CHANGEPASSWORD">CAMBIAR PASSWORD</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-sm-6 mb-3">
+                                            <div class="form-group">
+                                                <label class="required-field">Hora Inicio</label>
+                                                <input type="text" class="hora form-control" id="swal-horas_inicio2" />
+                                            </div>
+                                        </div>
+                                        <div class="col-sm-6 mb-3">
+                                            <div class="form-group">
+                                                <label>Hora Salida</label>
+                                                <input type="text" class="hora form-control" id="swal-hora_fin">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>`,
+                showCancelButton: true,
+                confirmButtonText: 'Agregar',
+                cancelButtonText: 'Cancelar',
+                preConfirm: () => {
+                    const usuario = document.getElementById('swal-usuario').value;
+                    const estatus = document.getElementById('swal-estado').value;
+                    const horainicio = document.getElementById('swal-horas_inicio2').value;
+                    const horafin = document.getElementById('swal-hora_fin').value;
+                    const contraseña = document.getElementById('swal-contraseña').value;
+                    if (!usuario || !estatus || !horainicio || !horafin || !contraseña) {
+                        Swal.showValidationMessage('Todos los campos son obligatorios');
+                        return false;
+                    }
+                    const horainicio1 = new Date(`2025-01-01T${horainicio}`);
+                    const horaFin1 = new Date(`2025-01-01T${horafin}`);
+                    if (!validarContraseña(contraseña).valido) {
+                        Swal.showValidationMessage(validarContraseña(contraseña).motivo);
+                        return false;
+                    }
+                    if (horainicio1 > horaFin1) {
+                        Swal.showValidationMessage('La hora de inicio no puede ser mayor que la hora de fin.');
+                        return false;
+                    }
+                    return { usuario, estatus, horainicio, horafin, contraseña };
+                }
+            }).then((result) => {
+                if (result.isConfirmed && result.value) {
+                    $.ajax({
+                        url: '/Usuarios/',
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify(result.value),
+                        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('TokenJWT') },
+                        success: function () {
+                            Swal.fire('Usuario agregado', '', 'success');
+                            datasource.ajax.reload(null, false);
+                        },
+                        error: function (xhr) {
+                            Swal.fire('Error', xhr.responseText, 'error');
+                        }
+                    });
+                }
+            });
+            flatpickr(".hora", { noCalendar: true, enableTime: true, time_24hr: true, dateFormat: "H:i:ss", locale: "es" });
+        }
+    </script>
+}
+
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Listado de Usuarios</h5>
+        </div>
+        <div class="card-body">
+            <table id="example" class="display" style="width:100%">
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Estatus</th>
+                        <th>HoraInicio</th>
+                        <th>HoraFin</th>
+                        <th>Operaciones</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+</div>
